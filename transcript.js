@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');  // For GitHub API requests
+const axios = require('axios');
 
 async function generateTranscript(channel) {
-  const messages = await channel.messages.fetch({ limit: 100 }); // Default to 100
+  const messages = await channel.messages.fetch({ limit: 100 });
+  
   let htmlContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -12,25 +13,11 @@ async function generateTranscript(channel) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Transcript for ${channel.name}</title>
       <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          margin: 20px;
-        }
-        .message {
-          margin-bottom: 10px;
-        }
-        .user {
-          font-weight: bold;
-          color: #2f3136;
-        }
-        .content {
-          padding-left: 15px;
-        }
-        .timestamp {
-          font-size: 0.9em;
-          color: gray;
-        }
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        .message { margin-bottom: 10px; }
+        .user { font-weight: bold; color: #2f3136; }
+        .content { padding-left: 15px; }
+        .timestamp { font-size: 0.9em; color: gray; }
       </style>
     </head>
     <body>
@@ -61,7 +48,7 @@ async function generateTranscript(channel) {
   }
   fs.writeFileSync(filePath, htmlContent);
 
-  const githubToken = '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';  // Secure this later
+  const githubToken = 'your_new_token_here'; // Fine-grained PAT
   const repoOwner = 'valkayn121';
   const repoName = 'transcripts';
   const filePathOnGitHub = `transcripts/${channel.id}_transcript.html`;
@@ -74,17 +61,19 @@ async function generateTranscript(channel) {
     const response = await axios.put(uploadUrl, {
       message: `Add transcript for ${channel.name}`,
       content: fileContent,
-      branch: 'main',
+      branch: 'main'
     }, {
       headers: {
-        'Authorization': `token ${githubToken}`,
+        'Authorization': `Bearer ${githubToken}`, // ✅ use Bearer for fine-grained tokens
+        'Accept': 'application/vnd.github+json'
       }
     });
 
     console.log('Transcript uploaded to GitHub:', response.data.content.html_url);
     return response.data.content.html_url;
+
   } catch (error) {
-    console.error('Error uploading to GitHub:', error.response?.data || error);
+    console.error('Error uploading to GitHub:', error.response?.data || error.message);
     return null;
   }
 }
