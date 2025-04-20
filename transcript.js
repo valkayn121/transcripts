@@ -5,18 +5,22 @@ async function generateTranscript(channel) {
   let allMessages = [];
   let lastMessageId;
 
-  // Fetch messages in batches of 100 until we reach 1000 messages or no more messages are available
-  while (allMessages.length < 1000) {
+  // Fetch messages in batches of 100 until we reach the end of the message history
+  while (true) {
     const options = { limit: 100 };
     if (lastMessageId) {
       options.before = lastMessageId;
     }
 
     const messages = await channel.messages.fetch(options);
-    
-    if (messages.size === 0) break;  // Exit if no more messages are found
-    
-    allMessages = [...allMessages, ...messages.array()];
+
+    // If no more messages are found, break the loop
+    if (messages.size === 0) break;
+
+    // Add messages to the array
+    allMessages.push(...messages.values());
+
+    // Set the last message ID to fetch older messages in the next iteration
     lastMessageId = messages.last().id;
   }
 
@@ -83,7 +87,7 @@ async function generateTranscript(channel) {
   // Write the HTML content to the file
   fs.writeFileSync(filePath, htmlContent);
 
-  // Return the file path for later use (upload to GitHub or send to the user)
+  // Return the file path for later use (upload to Cloudflare, GitHub, etc.)
   return filePath;
 }
 
