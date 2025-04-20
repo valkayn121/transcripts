@@ -2,7 +2,24 @@ const fs = require('fs');
 const path = require('path');
 
 async function generateTranscript(channel) {
-  const messages = await channel.messages.fetch({ limit: 100 });
+  let allMessages = [];
+  let lastMessageId;
+
+  // Fetch messages in batches of 100 until we reach 1000 messages or no more messages are available
+  while (allMessages.length < 1000) {
+    const options = { limit: 100 };
+    if (lastMessageId) {
+      options.before = lastMessageId;
+    }
+
+    const messages = await channel.messages.fetch(options);
+    
+    if (messages.size === 0) break;  // Exit if no more messages are found
+    
+    allMessages = [...allMessages, ...messages.array()];
+    lastMessageId = messages.last().id;
+  }
+
   let htmlContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -39,7 +56,7 @@ async function generateTranscript(channel) {
   `;
 
   // Loop through the messages and format them
-  messages.reverse().forEach(message => {
+  allMessages.reverse().forEach(message => {
     htmlContent += `
       <div class="message">
         <p class="user">${message.author.tag} <span class="timestamp">(${new Date(message.createdTimestamp).toLocaleString()})</span></p>
