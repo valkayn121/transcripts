@@ -1,29 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');  // For GitHub API requests
 
 async function generateTranscript(channel) {
-  let allMessages = [];
-  let lastMessageId;
-
-  // Fetch messages in batches of 100 until we reach the end of the message history
-  while (true) {
-    const options = { limit: 100 };
-    if (lastMessageId) {
-      options.before = lastMessageId;
-    }
-
-    const messages = await channel.messages.fetch(options);
-
-    // If no more messages are found, break the loop
-    if (messages.size === 0) break;
-
-    // Add messages to the array
-    allMessages.push(...messages.values());
-
-    // Set the last message ID to fetch older messages in the next iteration
-    lastMessageId = messages.last().id;
-  }
-
+  const messages = await channel.messages.fetch({ limit: 100 }); // Default to 100
   let htmlContent = `
     <!DOCTYPE html>
     <html lang="en">
@@ -59,8 +39,7 @@ async function generateTranscript(channel) {
       <div>
   `;
 
-  // Loop through the messages and format them
-  allMessages.reverse().forEach(message => {
+  messages.reverse().forEach(message => {
     htmlContent += `
       <div class="message">
         <p class="user">${message.author.tag} <span class="timestamp">(${new Date(message.createdTimestamp).toLocaleString()})</span></p>
@@ -76,20 +55,38 @@ async function generateTranscript(channel) {
     </html>
   `;
 
-  // Define the file path to save the transcript
   const filePath = path.join(__dirname, `transcripts/${channel.id}_transcript.html`);
-
-  // Create the 'transcripts' directory if it doesn't exist
   if (!fs.existsSync(path.dirname(filePath))) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
   }
-
-  // Write the HTML content to the file
   fs.writeFileSync(filePath, htmlContent);
 
-  // Return the file path for later use (upload to Cloudflare, GitHub, etc.)
-  return filePath;
+  const githubToken = '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';  // Secure this later
+  const repoOwner = 'valkayn121';
+  const repoName = 'transcripts';
+  const filePathOnGitHub = `transcripts/${channel.id}_transcript.html`;
+
+  try {
+    const fileContent = fs.readFileSync(filePath, { encoding: 'base64' });
+
+    const uploadUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${filePathOnGitHub}`;
+
+    const response = await axios.put(uploadUrl, {
+      message: `Add transcript for ${channel.name}`,
+      content: fileContent,
+      branch: 'main',
+    }, {
+      headers: {
+        'Authorization': `token ${githubToken}`,
+      }
+    });
+
+    console.log('Transcript uploaded to GitHub:', response.data.content.html_url);
+    return response.data.content.html_url;
+  } catch (error) {
+    console.error('Error uploading to GitHub:', error.response?.data || error);
+    return null;
+  }
 }
 
-// Export the function so you can use it in other files
 module.exports = { generateTranscript };
